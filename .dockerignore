@@ -1,0 +1,11 @@
+.gitignore
+.git
+README.md
+CHANGELOG.md
+FEATURES.md
+TESTS.md
+TODO.md
+LICENSE
+tests
+node_modules
+*~

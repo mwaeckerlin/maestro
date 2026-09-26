@@ -1,0 +1,30 @@
+# The route of the Swarm deployment, with the host name spark-test: the bare
+# prefix is redirected to its slash form, everything below it reaches the
+# service with the prefix stripped (Traefik then sets X-Forwarded-Prefix).
+http:
+  routers:
+    maestro-slash:
+      rule: "Path(`/spark-test/maestro`)"
+      entryPoints: [web]
+      priority: 110
+      middlewares: [maestro-add-slash]
+      service: maestro
+    maestro:
+      rule: "PathPrefix(`/spark-test/maestro`)"
+      entryPoints: [web]
+      middlewares: [maestro-stripprefix]
+      service: maestro
+  middlewares:
+    maestro-add-slash:
+      redirectRegex:
+        regex: "^(https?)://([^/]+)/spark-test/maestro(\\?.*)?$"
+        replacement: "${1}://${2}/spark-test/maestro/${3}"
+        permanent: true
+    maestro-stripprefix:
+      stripPrefix:
+        prefixes: ["/spark-test/maestro"]
+  services:
+    maestro:
+      loadBalancer:
+        servers:
+          - url: "http://harness:42100"

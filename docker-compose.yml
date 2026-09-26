@@ -1,0 +1,23 @@
+services:
+  maestro:
+    image: mwaeckerlin/maestro
+    build: .
+    ports:
+      - 42003:42003
+    volumes:
+      - models:/models
+      - output:/output
+    tmpfs:
+      - /state
+      - /tmp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  models:
+  output:

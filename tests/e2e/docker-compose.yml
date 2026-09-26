@@ -1,0 +1,41 @@
+# E2E stack for the base path, without a GPU:
+#   harness     -> the image under test serving its built interface behind
+#                  maestro_serve's ForwardedPrefix (tests/e2e/harness)
+#   proxy       -> Traefik with the route of the Swarm deployment:
+#                  /spark-test/maestro stripped and forwarded to the harness
+#   test-runner -> pytest with Playwright/Chromium
+name: maestro-e2e
+
+services:
+
+  harness:
+    image: maestro-e2e-harness
+    build:
+      context: harness
+    pull_policy: build
+    # a port other than the default proves MAESTRO_PORT is read
+    environment:
+      MAESTRO_PORT: "42100"
+
+  proxy:
+    image: maestro-e2e-proxy
+    build:
+      context: proxy
+    pull_policy: build
+    # the HEALTHCHECK of the image under test decides when the harness is up
+    depends_on:
+      harness:
+        condition: service_healthy
+
+  test-runner:
+    image: maestro-e2e-runner
+    build:
+      context: .
+    pull_policy: build
+    depends_on:
+      - proxy
+    environment:
+      PROXY_URL: http://proxy
+      PREFIX: /spark-test/maestro
+      HARNESS_URL: http://harness:42100
+    command: ["pytest", "-v", "--tb=short", "-W", "error", "-p", "no:cacheprovider"]

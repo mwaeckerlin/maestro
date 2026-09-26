@@ -1,0 +1,9 @@
+# Runtime contract: runs check_runtime.py inside the built image, without a GPU.
+name: maestro-runtime
+
+services:
+  runtime:
+    image: maestro-runtime-test
+    build:
+      context: .
+    pull_policy: build
