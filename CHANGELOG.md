@@ -1,5 +1,8 @@
 # Changelog
 
+- 2026-09-27 **1.0.4**
+    - The image is published on Docker Hub for `linux/amd64` and `linux/arm64`; the build-time check that the arm64 packages exist is gone, because the arm64 runner now builds and tests the image itself
+
 - 2026-09-27 **1.0.3**
     - On arm64, upstream's optional FlashAttention, SageAttention and GGUF kernels are left out, because they exist for x86_64 only and a half-installed FlashAttention stopped the model libraries from loading
 

@@ -29,14 +29,6 @@ WORKDIR /opt/maestro/src
 # The Python version of upstream's CUDA 13 runtime, read from its launcher.
 RUN uv venv --managed-python --python "$(python3 /opt/maestro/bin/upstream-install.py python-version)" "${VIRTUAL_ENV}"
 
-#### arm64-resolution: every dependency resolves for arm64 (test target) ####
-FROM build AS arm64-resolution
-RUN python3 /opt/maestro/bin/upstream-install.py aarch64-requirements /tmp/requirements-aarch64.txt
-RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
-    python3 /opt/maestro/bin/arm64-resolution.py /tmp/requirements-aarch64.txt \
-       "$(python3 /opt/maestro/bin/upstream-install.py python-version)" \
-       "$(python3 /opt/maestro/bin/upstream-install.py pytorch-index)"
-
 #### install: the steps of upstream's install.js, without Pinokio ####
 # The cache ids are those of the earlier ubuntu-base build, so the packages
 # already downloaded there are used again.

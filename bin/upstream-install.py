@@ -18,9 +18,7 @@ Usage, from the root of the upstream source:
     upstream-install.py requirements     install requirements.txt
     upstream-install.py onnxruntime-gpu  keep only the GPU build of onnxruntime
     upstream-install.py aarch64-extras   taichi and NPP on aarch64
-    upstream-install.py aarch64-requirements FILE  write the aarch64 requirements
     upstream-install.py torch            install PyTorch and the accelerators
-    upstream-install.py torch-lines MACHINE  print the torch.js commands for MACHINE
     upstream-install.py seedvc           clone the voice-conversion component
     upstream-install.py optional-kernels scripts/NAME.py  run an optional kernel installer
 """
@@ -159,11 +157,6 @@ def install_requirements():
     subprocess.run(command, check=True)
 
 
-def write_aarch64_requirements(target):
-    """Write the aarch64 variant of requirements.txt, for the resolution check."""
-    Path(target).write_text(aarch64_requirements(read("app/requirements.txt")), encoding="utf-8")
-
-
 def install_aarch64_extras():
     """On aarch64: taichi through gstaichi, and NPP for torchcodec's CUDA build.
 
@@ -255,10 +248,10 @@ def torch_installs(machine):
             yield command, None
 
 
-def machine_tag(name=None):
-    machine = MACHINE_TAGS.get(name or platform.machine())
+def machine_tag():
+    machine = MACHINE_TAGS.get(platform.machine())
     if machine is None:
-        fail(f"unsupported architecture {name or platform.machine()}")
+        fail(f"unsupported architecture {platform.machine()}")
     return machine
 
 
@@ -292,13 +285,6 @@ def optional_kernels(script):
     subprocess.run(command, check=True, cwd="app")
 
 
-def print_torch_lines(machine):
-    """The torch.js commands the build runs on MACHINE, one per line."""
-    for command, skipped in torch_installs(machine_tag(machine)):
-        if not skipped:
-            print(command)
-
-
 def seedvc_clone():
     """The pinned clone of the voice-conversion component from install.js."""
     source = read("install.js")
@@ -320,17 +306,11 @@ def main(argv):
         "torch": install_torch,
         "seedvc": seedvc_clone,
     }
-    if len(argv) == 3 and argv[1] == "aarch64-requirements":
-        write_aarch64_requirements(argv[2])
-        return
-    if len(argv) == 3 and argv[1] == "torch-lines":
-        print_torch_lines(argv[2])
-        return
     if len(argv) == 3 and argv[1] == "optional-kernels":
         optional_kernels(argv[2])
         return
     if len(argv) != 2 or argv[1] not in actions:
-        fail(f"usage: {argv[0]} {'|'.join(actions)}|aarch64-requirements FILE|torch-lines MACHINE|optional-kernels SCRIPT")
+        fail(f"usage: {argv[0]} {'|'.join(actions)}|optional-kernels SCRIPT")
     actions[argv[1]]()
 
 

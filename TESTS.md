@@ -1,6 +1,6 @@
 # Tests
 
-Register of all tests, grouped by kind and sorted by the [FEATURES.md](FEATURES.md) number each test covers. `npm test` runs every suite that needs no GPU; `npm run test:gpu` runs the suite against the real Maestro server and needs a host with an NVIDIA GPU; `npm run test:arm64` runs the arm64 resolution contract. The guard `tests/docs-contract.sh` fails when a feature has no test entry here or when any test carries a skip/xfail marker — tests are never skipped.
+Register of all tests, grouped by kind and sorted by the [FEATURES.md](FEATURES.md) number each test covers. `npm test` runs every suite that needs no GPU; `npm run test:gpu` runs the suite against the real Maestro server and needs a host with an NVIDIA GPU; the runtime contract runs on the arm64 runner of GitHub Actions against the arm64 image. The guard `tests/docs-contract.sh` fails when a feature has no test entry here or when any test carries a skip/xfail marker — tests are never skipped.
 
 The Maestro server imports its engine at start, and the engine asks CUDA for the GPU; without one it stops. The e2e suite therefore serves the real interface of the image through a harness (`tests/e2e/harness/harness.py`) that answers the requests of the base path tests; the GPU suite runs the real server.
 
@@ -44,10 +44,6 @@ Runs inside the image, without a GPU.
 - **F11** `tests/runtime/check_runtime.py` › installed_requirements_follow_upstream — on x86_64 the installed list is upstream's `requirements.txt` unchanged, on aarch64 none of the x86_64-only pins reached it and `decord2` did.
 - **F11** `tests/runtime/check_runtime.py` › taichi_importable — `taichi` imports, on aarch64 as `gstaichi`, with `init` and `kernel`.
 - **F11** `tests/runtime/check_runtime.py` › no_shared_library_of_another_architecture — no ELF shared library in the environment or the source is built for another architecture than the image.
-
-## arm64 resolution contract
-
-- **F11** `tests/run-arm64.sh` › build target `arm64-resolution` — the arm64 variant of upstream's `requirements.txt`, `gstaichi`, `nvidia-npp` and every `torch.js` line the build runs on aarch64 resolve for aarch64 with the glibc of the build stage and the upstream Python version; where they do not, every line without an aarch64 distribution is listed.
 
 ## Base path e2e
 

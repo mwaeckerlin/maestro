@@ -108,7 +108,7 @@ The image is built for `linux/amd64` and `linux/arm64` (NVIDIA GB10). On amd64 i
 
 From upstream's `torch.js`, the arm64 image installs PyTorch and Triton. Three of its wheels exist for x86_64 only and are left out, each named in the build log: `xformers`, which upstream installs as an option and which Maestro's attention code does without by choosing another attention mode, and the optional `lightx2v_kernel` and `nunchaku` kernels. Upstream's optional installers for FlashAttention, SageAttention and the GGUF kernels name Linux wheels for x86_64 only, so the arm64 build skips them; Maestro then uses PyTorch's SDPA attention and dequantises GGUF models without those kernels.
 
-The build keeps the list it installed in the image (`/opt/maestro/src/requirements-installed.txt`), and the runtime contract checks that list. `npm run test:arm64` measures on any build host whether the arm64 set resolves for aarch64; the arm64 image itself is built natively on the arm64 runner of GitHub Actions, which also runs `npm test` there.
+The build keeps the list it installed in the image (`/opt/maestro/src/requirements-installed.txt`), and the runtime contract checks that list. The arm64 image is built natively on the arm64 runner of GitHub Actions, which also runs `npm test` there.
 
 ## Development
 
@@ -136,7 +136,6 @@ GitHub Actions builds the image and publishes it on Docker Hub on every push to 
 1. **`build`** — `mwaeckerlin/ubuntu-very-base` with the build tools, [uv], the upstream source (`MAESTRO_SOURCE`, fetched by BuildKit, which compares the remote commit on every build) and the virtual environment with upstream's Python version.
 2. **`install`** — the steps of upstream's `install.js`: `requirements.txt`, PyTorch with xformers and Triton from `torch.js`, the optional acceleration and GGUF kernels, `maestro-seedvc`, the React interface built with relative asset URLs and the base path script. `bin/upstream-install.py` reads every version from the launcher files, so no version number is written in this repository. `bin/collect-runtime.py` then collects the shared libraries of every binary, ffmpeg, git and gcc into the directory the final stage copies, and refuses a result that contains a shell.
 3. **final** — `mwaeckerlin/ubuntu-scratch` with that directory, the Python runtime and the read-only Maestro source.
-4. **`arm64-resolution`** — a test target only.
 
 ### Build Warnings of Upstream
 
