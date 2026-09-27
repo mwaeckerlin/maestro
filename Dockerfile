@@ -31,8 +31,10 @@ RUN uv venv --managed-python --python "$(python3 /opt/maestro/bin/upstream-insta
 
 #### arm64-resolution: every dependency resolves for arm64 (test target) ####
 FROM build AS arm64-resolution
+RUN python3 /opt/maestro/bin/upstream-install.py aarch64-requirements /tmp/requirements-aarch64.txt
 RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
-    python3 /opt/maestro/bin/arm64-resolution.py "$(python3 /opt/maestro/bin/upstream-install.py python-version)" \
+    python3 /opt/maestro/bin/arm64-resolution.py /tmp/requirements-aarch64.txt \
+       "$(python3 /opt/maestro/bin/upstream-install.py python-version)" \
        "$(python3 /opt/maestro/bin/upstream-install.py pytorch-index)"
 
 #### install: the steps of upstream's install.js, without Pinokio ####
@@ -47,6 +49,8 @@ RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
     uv pip install hf-xet pip
 RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
     python3 /opt/maestro/bin/upstream-install.py torch
+RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
+    python3 /opt/maestro/bin/upstream-install.py aarch64-extras
 # Both helpers of upstream install optional kernels and report a missing wheel
 # instead of failing, the way they do under Pinokio.
 RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \

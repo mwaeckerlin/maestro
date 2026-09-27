@@ -2,7 +2,7 @@
 
 Runs inside the image with its own interpreter and without a GPU. It measures
 what can be measured without CUDA hardware: the Python and PyTorch builds of
-upstream's CUDA 13 runtime, every dependency of upstream's requirements.txt
+upstream's CUDA 13 runtime, every dependency the build installed from upstream's requirements.txt
 installed and importable, the programs Maestro and Triton call, the built
 interface with the base path script, and the launcher's configuration from the
 environment.
@@ -55,11 +55,15 @@ def upstream_torch_versions():
 
 
 def requirement_names():
-    """Distribution names of app/requirements.txt that apply to this platform."""
+    """Distribution names the build installed on this platform.
+
+    requirements-installed.txt is upstream's requirements.txt on x86_64 and
+    its aarch64 variant with the x86_64-only pins replaced on aarch64.
+    """
     from packaging.requirements import Requirement
 
     names = []
-    for line in (APP / "requirements.txt").read_text(encoding="utf-8").splitlines():
+    for line in (SOURCE / "requirements-installed.txt").read_text(encoding="utf-8").splitlines():
         line = line.split(" #")[0].strip()
         if not line or line.startswith(("#", "-", "--")):
             continue
@@ -170,6 +174,28 @@ def _():
 def _():
     importlib.import_module("triton")
     importlib.import_module("xformers")
+
+
+@check("installed_requirements_follow_upstream")
+def _():
+    import platform
+
+    upstream = (APP / "requirements.txt").read_text(encoding="utf-8")
+    installed = (SOURCE / "requirements-installed.txt").read_text(encoding="utf-8")
+    if platform.machine() == "x86_64":
+        assert installed == upstream, "x86_64 installs upstream's requirements.txt unchanged"
+    else:
+        for pin in ("decord==", "taichi==", "onnxruntime-gpu=="):
+            assert pin not in installed, f"the x86_64-only pin {pin} reached the aarch64 requirements"
+        assert "decord2" in installed.splitlines()
+
+
+@check("taichi_importable")
+def _():
+    # the SCAIL pose renderer imports taichi (models/wan/scail); on aarch64 it
+    # is gstaichi under the same name
+    taichi = importlib.import_module("taichi")
+    assert hasattr(taichi, "init") and hasattr(taichi, "kernel"), taichi
 
 
 @check("ffmpeg_and_ffprobe_run")

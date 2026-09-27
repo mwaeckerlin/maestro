@@ -20,6 +20,6 @@ jobs:
   docker:
     uses: mwaeckerlin/scratch/.github/workflows/docker-image.yml@master
     with:
-      architectures: '["amd64"]'
+      architectures: '["amd64","arm64"]'
       free-disk: true
     secrets: inherit

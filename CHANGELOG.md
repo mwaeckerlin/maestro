@@ -1,5 +1,9 @@
 # Changelog
 
+- 2026-09-27 **1.0.1**
+    - Also built for arm64, such as the NVIDIA GB10: the upstream packages that exist for x86_64 only are replaced there by releases and forks that ship arm64 builds
+        - the amd64 image installs exactly what upstream specifies, as before
+
 - 2026-09-26 **1.0.0**
     - Maestro, the studio for image, video and music on NVIDIA GPUs, as a headless container: no Pinokio, no desktop, no shell in the image
     - Built on the Ubuntu base images of the family, because PyTorch and the CUDA libraries exist for glibc only

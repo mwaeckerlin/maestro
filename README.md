@@ -97,7 +97,16 @@ A Swarm service has no `--gpus`. Set `"default-runtime": "nvidia"` in `/etc/dock
 
 ### Architectures
 
-The image is built for `linux/amd64`. For `linux/arm64` (NVIDIA GB10) the requirements are installed from PyPI plus the PyTorch CUDA 13 index that upstream's `torch.js` names: upstream pins `torchcodec==0.10.0`, which PyPI publishes for x86_64 Linux only, while the PyTorch index carries `0.10.0+cu130` for aarch64 as well. `npm run test:arm64` measures on any build host whether every requirement resolves for aarch64; the arm64 image itself is built on an arm64 host. It does not resolve today: `onnxruntime-gpu==1.25.0.dev20260210001` (and with it `rembg[gpu]`, which Maestro imports at start), `decord==0.6.0` and `taichi==1.7.4` exist for x86_64 only among the Linux platforms, and `smplfitter` resolves only without build isolation.
+The image is built for `linux/amd64` and `linux/arm64` (NVIDIA GB10). On amd64 it installs upstream's `requirements.txt` unchanged. Four of its pins exist on PyPI for x86_64 Linux only; on arm64 they are replaced, and the PyTorch CUDA 13 index that upstream's `torch.js` names is added:
+
+| Upstream | On arm64 |
+| --- | --- |
+| `onnxruntime-gpu==1.25.0.dev20260210001` (nightly) | `onnxruntime-gpu`, the latest release, which has aarch64 wheels from 1.29 on |
+| `decord==0.6.0` | `decord2`, a maintained fork that ships the same `decord` module |
+| `taichi==1.7.4` | `gstaichi`, the Genesis fork, installed under the module name `taichi` for the SCAIL pose renderer |
+| `torchcodec==0.10.0` | `0.10.0+cu130` from the PyTorch index, plus `nvidia-npp` for CUDA 13, which it links against |
+
+The build keeps the list it installed in the image (`/opt/maestro/src/requirements-installed.txt`), and the runtime contract checks that list. `npm run test:arm64` measures on any build host whether the arm64 set resolves for aarch64; the arm64 image itself is built natively on the arm64 runner of GitHub Actions, which also runs `npm test` there.
 
 ## Development
 
@@ -109,7 +118,7 @@ $ npm run test:gpu
 
 `npm run build` builds the image with Docker Compose and starts over up to three times when the build fails, because a name lookup or a download that breaks off ends the whole build while the finished steps stay cached; `npm test` runs every suite that needs no GPU, `npm run test:gpu` runs the real Maestro server on an NVIDIA GPU host.
 
-GitHub Actions builds the image and publishes it on Docker Hub on every push to the default branch and once a week ([.github/workflows/docker.yml](.github/workflows/docker.yml), the reusable workflow of [mwaeckerlin/scratch]), for `linux/amd64`.
+GitHub Actions builds the image and publishes it on Docker Hub on every push to the default branch and once a week ([.github/workflows/docker.yml](.github/workflows/docker.yml), the reusable workflow of [mwaeckerlin/scratch]), natively for `linux/amd64` and `linux/arm64`.
 
 `npm test` runs, and fails on any single error:
 

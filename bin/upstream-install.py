@@ -17,9 +17,12 @@ Usage, from the root of the upstream source:
     upstream-install.py pytorch-index    print the package index torch comes from
     upstream-install.py requirements     install requirements.txt
     upstream-install.py onnxruntime-gpu  keep only the GPU build of onnxruntime
+    upstream-install.py aarch64-extras   taichi and NPP on aarch64
+    upstream-install.py aarch64-requirements FILE  write the aarch64 requirements
     upstream-install.py torch            install PyTorch and the accelerators
     upstream-install.py seedvc           clone the voice-conversion component
 """
+import os
 import platform
 import re
 import shlex
@@ -95,23 +98,106 @@ def foreign_wheel(command, machine):
     return any(tag != machine for tag in tags)
 
 
-def install_requirements():
-    """uv pip install -r app/requirements.txt, as install.js does.
+# The file the image records as installed, read by its runtime contract.
+INSTALLED_REQUIREMENTS = "requirements-installed.txt"
 
-    On aarch64 the PyTorch index torch.js names is added: upstream pins
-    torchcodec, which PyPI publishes for x86_64 Linux only, and that index
-    carries it for aarch64. On x86_64 the sources stay upstream's own, because
-    the index would swap in torchcodec's CUDA build, which needs NVIDIA NPP.
+# Upstream requirements PyPI publishes for x86_64 Linux only, and what takes
+# their place on aarch64, each measured on PyPI on 2026-09-27. A replacement
+# that is None is installed by install_aarch64_extras instead.
+AARCH64_REPLACEMENTS = {
+    # decord2 is a maintained fork that ships the same `decord` module
+    "decord": "decord2",
+    # the nightly build upstream pins has no aarch64 wheel; the releases from
+    # 1.29 on have one
+    "onnxruntime-gpu": "onnxruntime-gpu",
+    # gstaichi, the Genesis fork, has aarch64 wheels as pre-releases only
+    "taichi": None,
+}
+
+
+def on_aarch64():
+    return MACHINE_TAGS.get(platform.machine()) == "aarch64"
+
+
+def aarch64_requirements(text):
+    """requirements.txt with the x86_64-only pins replaced for aarch64."""
+    lines = []
+    seen = set()
+    for line in text.splitlines():
+        match = re.match(r"\s*([A-Za-z0-9_.-]+)\s*(==|@|;|$)", line)
+        name = match.group(1).lower() if match else None
+        if name in AARCH64_REPLACEMENTS:
+            replacement = AARCH64_REPLACEMENTS[name]
+            if replacement and replacement not in seen:
+                lines.append(replacement)
+                seen.add(replacement)
+            continue
+        lines.append(line)
+    return "\n".join(lines) + "\n"
+
+
+def install_requirements():
+    """uv pip install -r requirements.txt, as install.js does.
+
+    On x86_64 the file and its sources are upstream's own. On aarch64 the
+    x86_64-only pins are replaced (AARCH64_REPLACEMENTS) and the PyTorch index
+    torch.js names is added, because upstream pins torchcodec, which PyPI
+    publishes for x86_64 Linux only; that index carries it for aarch64. On
+    x86_64 the index would swap in torchcodec's CUDA build, which needs NPP.
+    The file that was installed is kept, so the runtime contract checks it.
     """
-    command = ["uv", "pip", "install", "-r", "app/requirements.txt", "--index-strategy", "unsafe-best-match"]
-    if MACHINE_TAGS.get(platform.machine()) == "aarch64":
+    text = read("app/requirements.txt")
+    if on_aarch64():
+        text = aarch64_requirements(text)
+    Path(INSTALLED_REQUIREMENTS).write_text(text, encoding="utf-8")
+    command = ["uv", "pip", "install", "-r", INSTALLED_REQUIREMENTS, "--index-strategy", "unsafe-best-match"]
+    if on_aarch64():
         command += ["--extra-index-url", pytorch_index()]
     print(f"upstream-install: {' '.join(command)}", flush=True)
     subprocess.run(command, check=True)
 
 
+def write_aarch64_requirements(target):
+    """Write the aarch64 variant of requirements.txt, for the resolution check."""
+    Path(target).write_text(aarch64_requirements(read("app/requirements.txt")), encoding="utf-8")
+
+
+def install_aarch64_extras():
+    """On aarch64: taichi through gstaichi, and NPP for torchcodec's CUDA build.
+
+    gstaichi ships the module `gstaichi`; a module `taichi` that is gstaichi
+    lets Maestro's SCAIL pose renderer import it by its usual name. The CUDA
+    build of torchcodec the PyTorch index carries for aarch64 links against
+    libnppicc, which nvidia-npp of the same CUDA major puts beside the other
+    CUDA libraries in nvidia/cu13/lib.
+    """
+    if not on_aarch64():
+        print("upstream-install: x86_64 installs taichi and torchcodec from requirements.txt", flush=True)
+        return
+    cuda_major = re.search(r"cu(\d+?)0$", pytorch_index().rstrip("/")).group(1)
+    commands = [
+        ["uv", "pip", "install", "--prerelease", "allow", "gstaichi"],
+        ["uv", "pip", "install", f"nvidia-npp=={cuda_major}.*"],
+    ]
+    for command in commands:
+        print(f"upstream-install: {' '.join(command)}", flush=True)
+        subprocess.run(command, check=True)
+    site = subprocess.run(
+        [str(Path(os.environ["VIRTUAL_ENV"]) / "bin" / "python"), "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    Path(site, "taichi.py").write_text(
+        '"""taichi on aarch64 is gstaichi, the fork with aarch64 wheels."""\n'
+        "import sys\n\nimport gstaichi\n\nsys.modules[__name__] = gstaichi\n",
+        encoding="utf-8",
+    )
+    print(f"upstream-install: {site}/taichi.py points to gstaichi", flush=True)
+
+
 def onnxruntime_gpu_requirement():
-    """The onnxruntime-gpu line of requirements.txt for the runtime's Python."""
+    """The onnxruntime-gpu requirement for the runtime's Python and machine."""
+    if on_aarch64():
+        return AARCH64_REPLACEMENTS["onnxruntime-gpu"], None
     wanted = tuple(int(part) for part in python_version().split("."))
     lines = read("app/requirements.txt").splitlines()
     index = next((line.split(None, 1)[1] for line in lines if line.startswith("--extra-index-url")), None)
@@ -174,12 +260,16 @@ def main(argv):
         "python-version": lambda: print(python_version()),
         "pytorch-index": lambda: print(pytorch_index()),
         "requirements": install_requirements,
+        "aarch64-extras": install_aarch64_extras,
         "onnxruntime-gpu": install_onnxruntime_gpu,
         "torch": install_torch,
         "seedvc": seedvc_clone,
     }
+    if len(argv) == 3 and argv[1] == "aarch64-requirements":
+        write_aarch64_requirements(argv[2])
+        return
     if len(argv) != 2 or argv[1] not in actions:
-        fail(f"usage: {argv[0]} {'|'.join(actions)}")
+        fail(f"usage: {argv[0]} {'|'.join(actions)}|aarch64-requirements FILE")
     actions[argv[1]]()
 
 

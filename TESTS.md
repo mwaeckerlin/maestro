@@ -41,9 +41,12 @@ Runs inside the image, without a GPU.
 - **F12** `tests/runtime/check_runtime.py` › no_tailscale_client — the image carries no Tailscale client, so the launcher's Tailscale route cannot start.
 - **F13** `tests/runtime/check_runtime.py` › health_fails_while_nothing_listens — the health check reports unhealthy while no server answers.
 
+- **F11** `tests/runtime/check_runtime.py` › installed_requirements_follow_upstream — on x86_64 the installed list is upstream's `requirements.txt` unchanged, on aarch64 none of the x86_64-only pins reached it and `decord2` did.
+- **F11** `tests/runtime/check_runtime.py` › taichi_importable — `taichi` imports, on aarch64 as `gstaichi`, with `init` and `kernel`.
+
 ## arm64 resolution contract
 
-- **F11** `tests/run-arm64.sh` › build target `arm64-resolution` — every line of upstream's `requirements.txt` resolves for `aarch64-manylinux_2_28` with the upstream Python version, and the whole file resolves jointly; every line without an aarch64 distribution is listed.
+- **F11** `tests/run-arm64.sh` › build target `arm64-resolution` — the arm64 variant of upstream's `requirements.txt`, `gstaichi` and `nvidia-npp` resolve for aarch64 with the glibc of the build stage and the upstream Python version; where they do not, every line without an aarch64 distribution is listed.
 
 ## Base path e2e
 
