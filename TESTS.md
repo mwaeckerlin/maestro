@@ -43,6 +43,7 @@ Runs inside the image, without a GPU.
 
 - **F11** `tests/runtime/check_runtime.py` › installed_requirements_follow_upstream — on x86_64 the installed list is upstream's `requirements.txt` unchanged, on aarch64 none of the x86_64-only pins reached it and `decord2` did.
 - **F11** `tests/runtime/check_runtime.py` › taichi_importable — `taichi` imports, on aarch64 as `gstaichi`, with `init` and `kernel`.
+- **F11** `tests/runtime/check_runtime.py` › no_shared_library_of_another_architecture — no ELF shared library in the environment or the source is built for another architecture than the image.
 
 ## arm64 resolution contract
 

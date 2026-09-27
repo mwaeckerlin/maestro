@@ -22,6 +22,7 @@ Usage, from the root of the upstream source:
     upstream-install.py torch            install PyTorch and the accelerators
     upstream-install.py torch-lines MACHINE  print the torch.js commands for MACHINE
     upstream-install.py seedvc           clone the voice-conversion component
+    upstream-install.py optional-kernels scripts/NAME.py  run an optional kernel installer
 """
 import os
 import platform
@@ -270,6 +271,27 @@ def install_torch():
         subprocess.run(shlex.split(command), check=True)
 
 
+def optional_kernels(script):
+    """Run one of upstream's optional kernel installers, from app/.
+
+    Both installers name fixed Linux wheels. install_optional_cuda_acceleration
+    hands them to uv with --no-deps, and uv installs an x86_64 wheel from a URL
+    on aarch64 without a word: its Python files land, its compiled module does
+    not load, and diffusers then fails at import because it finds flash_attn.
+    Where every Linux wheel a script names is for another machine, the script
+    is skipped.
+    """
+    machine = machine_tag()
+    source = read(f"app/{script}")
+    tags = re.findall(r"linux_([a-z0-9_]+)\.whl", source)
+    if tags and all(tag != machine for tag in tags):
+        print(f"upstream-install: skipped, {script} names Linux wheels for {', '.join(sorted(set(tags)))} only", flush=True)
+        return
+    command = [str(Path(os.environ["VIRTUAL_ENV"]) / "bin" / "python"), f"scripts/{Path(script).name}"]
+    print(f"upstream-install: {' '.join(command)}", flush=True)
+    subprocess.run(command, check=True, cwd="app")
+
+
 def print_torch_lines(machine):
     """The torch.js commands the build runs on MACHINE, one per line."""
     for command, skipped in torch_installs(machine_tag(machine)):
@@ -304,8 +326,11 @@ def main(argv):
     if len(argv) == 3 and argv[1] == "torch-lines":
         print_torch_lines(argv[2])
         return
+    if len(argv) == 3 and argv[1] == "optional-kernels":
+        optional_kernels(argv[2])
+        return
     if len(argv) != 2 or argv[1] not in actions:
-        fail(f"usage: {argv[0]} {'|'.join(actions)}|aarch64-requirements FILE|torch-lines MACHINE")
+        fail(f"usage: {argv[0]} {'|'.join(actions)}|aarch64-requirements FILE|torch-lines MACHINE|optional-kernels SCRIPT")
     actions[argv[1]]()
 
 

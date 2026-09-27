@@ -185,6 +185,33 @@ def _():
         importlib.import_module("xformers")
 
 
+# ELF e_machine values of the architectures the image is built for
+ELF_MACHINES = {62: "x86_64", 183: "aarch64"}
+
+
+@check("no_shared_library_of_another_architecture")
+def _():
+    # a wheel installed for the wrong machine leaves Python files that import
+    # and a compiled module that does not, as flash_attn did on aarch64
+    foreign = []
+    for root in (Path("/opt/maestro/venv"), SOURCE):
+        for directory, _, files in os.walk(root):
+            for name in files:
+                if not (name.endswith(".so") or ".so." in name):
+                    continue
+                path = Path(directory, name)
+                if path.is_symlink():
+                    continue
+                with path.open("rb") as handle:
+                    header = handle.read(20)
+                if header[:4] != b"\x7fELF":
+                    continue
+                machine = ELF_MACHINES.get(int.from_bytes(header[18:20], "little"), "other")
+                if machine != platform.machine():
+                    foreign.append(f"{path} ({machine})")
+    assert not foreign, f"{len(foreign)} for another architecture: " + "; ".join(foreign[:10])
+
+
 @check("installed_requirements_follow_upstream")
 def _():
     import platform

@@ -52,11 +52,12 @@ RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
 RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
     python3 /opt/maestro/bin/upstream-install.py aarch64-extras
 # Both helpers of upstream install optional kernels and report a missing wheel
-# instead of failing, the way they do under Pinokio.
+# instead of failing, the way they do under Pinokio; where every Linux wheel a
+# helper names is for another architecture, it is skipped.
 RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
-    cd app && "${VIRTUAL_ENV}/bin/python" scripts/install_optional_cuda_acceleration.py
+    python3 /opt/maestro/bin/upstream-install.py optional-kernels scripts/install_optional_cuda_acceleration.py
 RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
-    cd app && "${VIRTUAL_ENV}/bin/python" scripts/install_gguf_kernels.py
+    python3 /opt/maestro/bin/upstream-install.py optional-kernels scripts/install_gguf_kernels.py
 RUN python3 /opt/maestro/bin/upstream-install.py seedvc
 # Maestro runs the component, it never updates it through git
 RUN rm -rf app/postprocessing/seedvc/.git
