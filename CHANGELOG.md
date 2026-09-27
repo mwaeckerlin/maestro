@@ -1,5 +1,8 @@
 # Changelog
 
+- 2026-09-27 **1.0.2**
+    - The arm64 build no longer stops at xformers, which upstream installs as an option and publishes for x86_64 only; Maestro uses another attention mode there
+
 - 2026-09-27 **1.0.1**
     - Also built for arm64, such as the NVIDIA GB10: the upstream packages that exist for x86_64 only are replaced there by releases and forks that ship arm64 builds
         - the amd64 image installs exactly what upstream specifies, as before

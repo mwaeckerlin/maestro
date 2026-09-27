@@ -21,7 +21,7 @@ Runs inside the image, without a GPU.
 - **F2** `tests/runtime/check_runtime.py` › runs_unprivileged — the service runs as `somebody` of `mwaeckerlin/ubuntu-scratch` and is a member of `shared-access` (gid 500), the group through which the output directory is shared, never as root.
 - **F2** `tests/runtime/check_runtime.py` › source_is_read_only_for_the_service_user — the code of the image cannot be changed by the service.
 - **F3** `tests/runtime/check_runtime.py` › torch_builds_are_upstream_cuda13 — torch, torchvision and torchaudio are the versions upstream pins, built for CUDA 13.
-- **F3** `tests/runtime/check_runtime.py` › triton_and_xformers_importable — Triton and xformers import.
+- **F3** `tests/runtime/check_runtime.py` › triton_and_xformers_importable — Triton and xformers import; on aarch64 xformers is absent and Maestro's attention module loads without it.
 - **F4** `tests/runtime/check_runtime.py` › launcher_reads_bind_address — defaults `0.0.0.0:42003`, overrides reach Maestro as `SERVER_NAME`/`SERVER_PORT`, a port that is no number between 1 and 65535 stops the start.
 - **F5** `tests/runtime/check_runtime.py` › launcher_links_model_and_output_directories — `ckpts` and `loras` point into `MAESTRO_MODEL_DIR`, and a second start keeps the links.
 - **F5** `tests/runtime/check_runtime.py` › launcher_rejects_relative_or_empty_directory — a relative directory stops the start with the name of the variable.
@@ -46,7 +46,7 @@ Runs inside the image, without a GPU.
 
 ## arm64 resolution contract
 
-- **F11** `tests/run-arm64.sh` › build target `arm64-resolution` — the arm64 variant of upstream's `requirements.txt`, `gstaichi` and `nvidia-npp` resolve for aarch64 with the glibc of the build stage and the upstream Python version; where they do not, every line without an aarch64 distribution is listed.
+- **F11** `tests/run-arm64.sh` › build target `arm64-resolution` — the arm64 variant of upstream's `requirements.txt`, `gstaichi`, `nvidia-npp` and every `torch.js` line the build runs on aarch64 resolve for aarch64 with the glibc of the build stage and the upstream Python version; where they do not, every line without an aarch64 distribution is listed.
 
 ## Base path e2e
 

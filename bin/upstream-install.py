@@ -20,6 +20,7 @@ Usage, from the root of the upstream source:
     upstream-install.py aarch64-extras   taichi and NPP on aarch64
     upstream-install.py aarch64-requirements FILE  write the aarch64 requirements
     upstream-install.py torch            install PyTorch and the accelerators
+    upstream-install.py torch-lines MACHINE  print the torch.js commands for MACHINE
     upstream-install.py seedvc           clone the voice-conversion component
 """
 import os
@@ -232,16 +233,48 @@ def install_onnxruntime_gpu():
         subprocess.run(command, check=True)
 
 
-def install_torch():
-    machine = MACHINE_TAGS.get(platform.machine())
-    if machine is None:
-        fail(f"unsupported architecture {platform.machine()}")
+# Lines of torch.js that install nothing on aarch64, each with the reason,
+# measured on the PyTorch index on 2026-09-27. xformers is optional upstream
+# (install.js switches it on through a template flag), and every import of it
+# in Maestro falls back when it is missing (shared/attention.py and the
+# preprocessors); its release pinned by torch.js has wheels for x86_64 and
+# Windows only.
+AARCH64_SKIPS = {"xformers": "optional upstream, and its pinned release has no aarch64 wheel"}
+
+
+def torch_installs(machine):
+    """Each torch.js command with the reason it is skipped on this machine."""
     for command in torch_commands():
+        packages = [word.split("==")[0].lower() for word in shlex.split(command)[3:] if not word.startswith("-")]
         if foreign_wheel(command, machine):
-            print(f"upstream-install: skipped, no {machine} wheel upstream: {command}", flush=True)
+            yield command, f"no {machine} wheel upstream"
+        elif machine == "aarch64" and any(name in AARCH64_SKIPS for name in packages):
+            yield command, next(AARCH64_SKIPS[name] for name in packages if name in AARCH64_SKIPS)
+        else:
+            yield command, None
+
+
+def machine_tag(name=None):
+    machine = MACHINE_TAGS.get(name or platform.machine())
+    if machine is None:
+        fail(f"unsupported architecture {name or platform.machine()}")
+    return machine
+
+
+def install_torch():
+    for command, skipped in torch_installs(machine_tag()):
+        if skipped:
+            print(f"upstream-install: skipped, {skipped}: {command}", flush=True)
             continue
         print(f"upstream-install: {command}", flush=True)
         subprocess.run(shlex.split(command), check=True)
+
+
+def print_torch_lines(machine):
+    """The torch.js commands the build runs on MACHINE, one per line."""
+    for command, skipped in torch_installs(machine_tag(machine)):
+        if not skipped:
+            print(command)
 
 
 def seedvc_clone():
@@ -268,8 +301,11 @@ def main(argv):
     if len(argv) == 3 and argv[1] == "aarch64-requirements":
         write_aarch64_requirements(argv[2])
         return
+    if len(argv) == 3 and argv[1] == "torch-lines":
+        print_torch_lines(argv[2])
+        return
     if len(argv) != 2 or argv[1] not in actions:
-        fail(f"usage: {argv[0]} {'|'.join(actions)}|aarch64-requirements FILE")
+        fail(f"usage: {argv[0]} {'|'.join(actions)}|aarch64-requirements FILE|torch-lines MACHINE")
     actions[argv[1]]()
 
 

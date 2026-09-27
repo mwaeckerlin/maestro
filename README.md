@@ -106,6 +106,8 @@ The image is built for `linux/amd64` and `linux/arm64` (NVIDIA GB10). On amd64 i
 | `taichi==1.7.4` | `gstaichi`, the Genesis fork, installed under the module name `taichi` for the SCAIL pose renderer |
 | `torchcodec==0.10.0` | `0.10.0+cu130` from the PyTorch index, plus `nvidia-npp` for CUDA 13, which it links against |
 
+From upstream's `torch.js`, the arm64 image installs PyTorch and Triton. Three of its wheels exist for x86_64 only and are left out, each named in the build log: `xformers`, which upstream installs as an option and which Maestro's attention code does without by choosing another attention mode, and the optional `lightx2v_kernel` and `nunchaku` kernels.
+
 The build keeps the list it installed in the image (`/opt/maestro/src/requirements-installed.txt`), and the runtime contract checks that list. `npm run test:arm64` measures on any build host whether the arm64 set resolves for aarch64; the arm64 image itself is built natively on the arm64 runner of GitHub Actions, which also runs `npm test` there.
 
 ## Development

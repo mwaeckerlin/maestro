@@ -3,7 +3,8 @@
 
 The build installs on aarch64 upstream's requirements.txt with its x86_64-only
 pins replaced (upstream-install.py aarch64-requirements), from PyPI plus the
-PyTorch index torch.js names, then gstaichi and nvidia-npp. This measurement
+PyTorch index torch.js names, then gstaichi, nvidia-npp and every torch.js
+line the build does not skip on aarch64. This measurement
 resolves the same set for linux/aarch64 on any build host. Where the file does
 not resolve, uv names only the first conflict, so every line is then resolved
 on its own and each one without an aarch64 distribution is listed. Exit code 0
@@ -15,6 +16,7 @@ Usage, from the root of the upstream source:
 """
 import platform
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -70,7 +72,25 @@ def main(requirements, python_version, index):
         ok, why = resolve(text, python_version, index, *options)
         print(f"arm64-resolution: {text.strip()} {'resolves' if ok else 'does not resolve: ' + why}", flush=True)
         failures += 0 if ok else 1
+    for command in torch_lines():
+        words = shlex.split(command)[3:]
+        packages = [
+            word for position, word in enumerate(words)
+            if not word.startswith("-") and not (position and words[position - 1] == "--index-url")
+        ]
+        options = ("--no-deps",) if "--no-deps" in words else ()
+        own_index = words[words.index("--index-url") + 1] if "--index-url" in words else index
+        ok, why = resolve("\n".join(packages) + "\n", python_version, own_index, *options)
+        print(f"arm64-resolution: torch.js {' '.join(packages)} {'resolves' if ok else 'does not resolve: ' + why}", flush=True)
+        failures += 0 if ok else 1
     return 1 if failures else 0
+
+
+def torch_lines():
+    """The torch.js commands the build runs on aarch64 (upstream-install.py)."""
+    helper = Path(__file__).with_name("upstream-install.py")
+    output = subprocess.run([sys.executable, str(helper), "torch-lines", "aarch64"], check=True, capture_output=True, text=True).stdout
+    return [line for line in output.splitlines() if line.strip()]
 
 
 if __name__ == "__main__":

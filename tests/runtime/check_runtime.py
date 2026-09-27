@@ -14,6 +14,7 @@ import importlib.metadata
 import importlib.util
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -173,7 +174,15 @@ def _():
 @check("triton_and_xformers_importable")
 def _():
     importlib.import_module("triton")
-    importlib.import_module("xformers")
+    if platform.machine() == "aarch64":
+        # no aarch64 wheel of the xformers release torch.js pins; Maestro's
+        # attention module then runs without it
+        assert importlib.util.find_spec("xformers") is None, "xformers is installed on aarch64"
+        sys.path.insert(0, str(APP))
+        attention = importlib.import_module("shared.attention")
+        assert attention.memory_efficient_attention is None
+    else:
+        importlib.import_module("xformers")
 
 
 @check("installed_requirements_follow_upstream")
