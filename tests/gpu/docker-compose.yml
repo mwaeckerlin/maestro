@@ -10,9 +10,10 @@ services:
     pull_policy: never
     environment:
       MAESTRO_CONFIG: '{"profile":4,"video_profile":4,"image_profile":4,"vae_config":3,"services":{"auto_performance":false}}'
+    # a tmpfs belongs to root; the service runs as somebody (uid 100, gid 1000)
     tmpfs:
-      - /state
-      - /tmp
+      - /state:uid=100,gid=1000,mode=0700
+      - /tmp:mode=1777
     volumes:
       - models:/models
       - output:/output

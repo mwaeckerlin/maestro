@@ -2,19 +2,18 @@
 
 Upstream starts Maestro from Pinokio, which passes the port in SERVER_PORT and
 keeps every setting in app/wgp_config.json. This launcher is the entrypoint of
-the image and does what Pinokio does, from environment variables:
+the image and does what Pinokio does:
 
-- MAESTRO_STATE_DIR receives everything Maestro writes besides models and
-  outputs: settings, the queue it saves, projects, uploads of the interface.
-  Maestro writes all of it into its own app directory, so the launcher runs a
-  copy of that directory from MAESTRO_STATE_DIR; the image itself stays
-  read-only, and a tmpfs there keeps all of it off the disk.
-- MAESTRO_MODEL_DIR receives the model weights, the LoRAs and the HuggingFace
-  cache; MAESTRO_OUTPUT_DIR receives every generated file. The launcher links
-  the directories Maestro writes them to.
+- /state receives everything Maestro writes besides models and outputs:
+  settings, the queue it saves, projects, uploads of the interface. Maestro
+  writes all of it into its own app directory, so the launcher runs a copy of
+  that directory from /state; the image itself stays read-only, and a tmpfs
+  there keeps all of it off the disk.
+- /models receives the model weights, the LoRAs and the HuggingFace cache;
+  /output receives every generated file. The launcher links the directories
+  Maestro writes them to.
 - MAESTRO_CONFIG, a JSON object, is merged into wgp_config.json at every start,
   so a deployment sets any of Maestro's own settings without the interface.
-- MAESTRO_HOST and MAESTRO_PORT become the bind address of the server.
 - A reverse proxy that strips a path prefix announces it in the header
   X-Forwarded-Prefix; ForwardedPrefix gives it to the application as ASGI
   root_path, which is what the classic Gradio interface builds its URLs from.
@@ -34,15 +33,16 @@ from pathlib import Path
 # app/launch.py reads from its parent directory.
 SOURCE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_FILENAME = "wgp_config.json"
-# The directories Maestro writes relative to its app directory, and the
-# variable that says where each of them lives.
-LINKED_DIRECTORIES = {
-    "ckpts": "MAESTRO_MODEL_DIR",
-    "loras": "MAESTRO_MODEL_DIR",
-    "outputs": "MAESTRO_OUTPUT_DIR",
-}
+# The volumes of the image; a deployment mounts whatever it wants there.
+MODEL_DIR = Path("/models")
+OUTPUT_DIR = Path("/output")
+STATE_DIR = Path("/state")
 # wgp parses the command line at import; launch.py hands it exactly this.
 WGP_ARGV = ["wgp.py", "--multiple-images"]
+# Inside the container the server listens on every interface; where it is
+# reached from outside is the port mapping of the deployment.
+HOST = "0.0.0.0"
+PORT = 42003
 
 
 class ConfigurationError(Exception):
@@ -108,15 +108,6 @@ def forwarded_prefix(headers):
     return ""
 
 
-def environment_directory(variable):
-    value = os.environ.get(variable, "").strip()
-    if not value:
-        raise ConfigurationError(f"{variable} is empty; it names a directory Maestro writes to")
-    if not os.path.isabs(value):
-        raise ConfigurationError(f"{variable}={value!r} is not an absolute path")
-    return Path(value)
-
-
 def replace_file(source, target):
     """Copy a file over an older copy, also where that copy is read-only.
 
@@ -129,20 +120,19 @@ def replace_file(source, target):
     return shutil.copy2(source, target)
 
 
-def prepare_state(source=SOURCE_DIR):
-    """Copy the app directory into MAESTRO_STATE_DIR and return the copy.
+def prepare_state(source=SOURCE_DIR, state=STATE_DIR):
+    """Copy the app directory into the state directory and return the copy.
 
     The code of the image replaces the code in the copy at every start, so an
     updated image runs its own version; what Maestro wrote there beside the
     code stays. Everything else of the source is linked, read-only.
     """
-    state = environment_directory("MAESTRO_STATE_DIR")
     state.mkdir(parents=True, exist_ok=True)
     try:
         shutil.copytree(source / "app", state / "app", symlinks=True, dirs_exist_ok=True,
                         copy_function=replace_file)
     except (OSError, shutil.Error) as error:
-        raise ConfigurationError(f"cannot write MAESTRO_STATE_DIR={state}: {error}") from error
+        raise ConfigurationError(f"cannot write {state}: {error}") from error
     for entry in source.iterdir():
         if entry.name == "app":
             continue
@@ -157,12 +147,9 @@ def prepare_state(source=SOURCE_DIR):
     return state / "app"
 
 
-def link_directories(app_dir):
-    """Point the directories Maestro writes into at the configured volumes."""
-    for name, variable in LINKED_DIRECTORIES.items():
-        target = environment_directory(variable)
-        if name == "loras":
-            target = target / "loras"
+def link_directories(app_dir, models=MODEL_DIR, output=OUTPUT_DIR):
+    """Point the directories Maestro writes into at the volumes."""
+    for name, target in (("ckpts", models), ("loras", models / "loras"), ("outputs", output)):
         target.mkdir(parents=True, exist_ok=True)
         link = app_dir / name
         if link.is_symlink() and Path(os.readlink(link)) == target:
@@ -224,21 +211,11 @@ def write_configuration(app_dir, override):
     print(f"[maestro-serve] applied MAESTRO_CONFIG: {', '.join(sorted(override))}", flush=True)
 
 
-def bind_address():
-    """MAESTRO_HOST and MAESTRO_PORT, also handed to Maestro as SERVER_NAME/SERVER_PORT."""
-    host = os.environ.get("MAESTRO_HOST", "").strip() or "0.0.0.0"
-    value = os.environ.get("MAESTRO_PORT", "").strip() or "42003"
-    if not value.isdigit() or not 0 < int(value) < 65536:
-        raise ConfigurationError(f"MAESTRO_PORT={value!r} is no port number between 1 and 65535")
-    os.environ["SERVER_NAME"] = host
-    os.environ["SERVER_PORT"] = value
-    return host, int(value)
-
-
 def main():
     import uvicorn
 
-    host, port = bind_address()
+    # Maestro reads the address it serves on from these, as under Pinokio
+    os.environ["SERVER_NAME"], os.environ["SERVER_PORT"] = HOST, str(PORT)
     app_dir = prepare_state()
     link_directories(app_dir)
     write_configuration(app_dir, configuration_override())
@@ -249,8 +226,8 @@ def main():
     sys.path.insert(0, str(app_dir))
     launch = runpy.run_path(str(app_dir / "launch.py"), run_name="maestro_launch")
     launch["install_quiet_access_filter"]()
-    print(f"[maestro-serve] Maestro listens on {host}:{port}", flush=True)
-    uvicorn.run(ForwardedPrefix(launch["api"]), host=host, port=port)
+    print(f"[maestro-serve] Maestro listens on {HOST}:{PORT}", flush=True)
+    uvicorn.run(ForwardedPrefix(launch["api"]), host=HOST, port=PORT)
 
 
 def health():
@@ -262,9 +239,8 @@ def health():
     """
     import urllib.request
 
-    _, port = bind_address()
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
+        with urllib.request.urlopen(f"http://127.0.0.1:{PORT}/", timeout=10) as response:
             return 0 if response.status == 200 else 1
     except OSError as error:
         print(f"[maestro-serve] not healthy: {error}", flush=True)

@@ -310,13 +310,14 @@ def _():
 def _():
     import maestro_serve
 
+    assert maestro_serve.STATE_DIR == Path("/state")
     with tempfile.TemporaryDirectory() as directory:
-        os.environ["MAESTRO_STATE_DIR"] = directory
-        app_dir = maestro_serve.prepare_state()
-        assert app_dir == Path(directory) / "app"
+        state = Path(directory)
+        app_dir = maestro_serve.prepare_state(state=state)
+        assert app_dir == state / "app"
         assert (app_dir / "launch.py").is_file() and not (app_dir / "launch.py").is_symlink()
-        assert (Path(directory) / "ui" / "dist" / "index.html").is_file()
-        assert (Path(directory) / "maestro_simplified_icon_alpha.png").is_file()
+        assert (state / "ui" / "dist" / "index.html").is_file()
+        assert (state / "maestro_simplified_icon_alpha.png").is_file()
         # Maestro writes its settings into its app directory: the copy takes them
         (app_dir / "settings").mkdir(exist_ok=True)
         (app_dir / "settings" / "kept.json").write_text("{}")
@@ -324,51 +325,28 @@ def _():
         # a copy that is read-only (git pack files are 0444)
         (app_dir / "launch.py").write_text("stale")
         (app_dir / "launch.py").chmod(0o444)
-        maestro_serve.prepare_state()
+        maestro_serve.prepare_state(state=state)
         assert (app_dir / "launch.py").read_text() != "stale"
         assert (app_dir / "settings" / "kept.json").is_file()
-    os.environ["MAESTRO_STATE_DIR"] = "/state"
 
 
 @check("launcher_links_model_and_output_directories")
 def _():
     import maestro_serve
 
+    assert (maestro_serve.MODEL_DIR, maestro_serve.OUTPUT_DIR) == (Path("/models"), Path("/output"))
     with tempfile.TemporaryDirectory() as directory:
         app_dir = Path(directory) / "app"
         app_dir.mkdir()
-        os.environ["MAESTRO_MODEL_DIR"] = os.path.join(directory, "models")
-        os.environ["MAESTRO_OUTPUT_DIR"] = os.path.join(directory, "output")
-        maestro_serve.link_directories(app_dir)
-        assert os.path.realpath(app_dir / "ckpts") == os.path.join(directory, "models")
-        assert os.path.realpath(app_dir / "loras") == os.path.join(directory, "models", "loras")
-        assert os.path.realpath(app_dir / "outputs") == os.path.join(directory, "output")
+        models, output = Path(directory) / "models", Path(directory) / "output"
+        maestro_serve.link_directories(app_dir, models=models, output=output)
+        assert os.path.realpath(app_dir / "ckpts") == str(models)
+        assert os.path.realpath(app_dir / "loras") == str(models / "loras")
+        assert os.path.realpath(app_dir / "outputs") == str(output)
         (app_dir / "outputs" / "written.png").write_bytes(b"x")
-        assert os.path.isfile(os.path.join(directory, "output", "written.png"))
+        assert (output / "written.png").is_file()
         # a second start finds the links in place
-        maestro_serve.link_directories(app_dir)
-    os.environ["MAESTRO_MODEL_DIR"] = "/models"
-    os.environ["MAESTRO_OUTPUT_DIR"] = "/output"
-
-
-@check("launcher_rejects_relative_or_empty_directory")
-def _():
-    import maestro_serve
-
-    for variable, value in (("MAESTRO_OUTPUT_DIR", "output"), ("MAESTRO_STATE_DIR", "")):
-        previous = os.environ.get(variable, "")
-        os.environ[variable] = value
-        try:
-            if variable == "MAESTRO_STATE_DIR":
-                maestro_serve.prepare_state()
-            else:
-                maestro_serve.link_directories(Path(tempfile.mkdtemp()))
-        except maestro_serve.ConfigurationError as error:
-            assert variable in str(error)
-        else:
-            raise AssertionError(f"{variable}={value!r} was accepted")
-        finally:
-            os.environ[variable] = previous
+        maestro_serve.link_directories(app_dir, models=models, output=output)
 
 
 @check("launcher_merges_maestro_config")
@@ -406,31 +384,19 @@ def _():
     os.environ["MAESTRO_CONFIG"] = ""
 
 
-@check("launcher_reads_bind_address")
+@check("launcher_listens_on_the_exposed_port")
 def _():
     import maestro_serve
 
-    os.environ["MAESTRO_HOST"], os.environ["MAESTRO_PORT"] = "", ""
-    assert maestro_serve.bind_address() == ("0.0.0.0", 42003)
-    os.environ["MAESTRO_HOST"], os.environ["MAESTRO_PORT"] = "127.0.0.1", "42100"
-    assert maestro_serve.bind_address() == ("127.0.0.1", 42100)
-    assert (os.environ["SERVER_NAME"], os.environ["SERVER_PORT"]) == ("127.0.0.1", "42100")
-    for value in ("http", "0", "70000"):
-        os.environ["MAESTRO_PORT"] = value
-        try:
-            maestro_serve.bind_address()
-        except maestro_serve.ConfigurationError as error:
-            assert "MAESTRO_PORT" in str(error)
-        else:
-            raise AssertionError(f"MAESTRO_PORT={value!r} was accepted")
-    os.environ["MAESTRO_HOST"], os.environ["MAESTRO_PORT"] = "0.0.0.0", "42003"
+    dockerfile_port = 42003  # EXPOSE of the image
+    assert (maestro_serve.HOST, maestro_serve.PORT) == ("0.0.0.0", dockerfile_port)
 
 
 @check("health_fails_while_nothing_listens")
 def _():
     result = subprocess.run(
         [sys.executable, str(APP / "maestro_serve.py"), "--health"],
-        capture_output=True, text=True, env=dict(os.environ, MAESTRO_PORT="42199"),
+        capture_output=True, text=True,
     )
     assert result.returncode == 1, result.stdout + result.stderr
     assert "not healthy" in result.stdout

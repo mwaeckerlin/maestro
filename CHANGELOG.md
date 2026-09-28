@@ -1,5 +1,9 @@
 # Changelog
 
+- 2026-09-28 **1.0.5**
+    - The server always listens on port 42003 and uses the volumes `/models`, `/output` and `/state`; the variables that moved them are gone, because a port mapping and a mount do the same
+    - The documented `docker run` starts again: its tmpfs mounts for `/state` and `/tmp` now carry the owner and mode the service needs, where before the start stopped with «Permission denied»
+
 - 2026-09-27 **1.0.4**
     - The image is published on Docker Hub for `linux/amd64` and `linux/arm64`; the build-time check that the arm64 packages exist is gone, because the arm64 runner now builds and tests the image itself
 

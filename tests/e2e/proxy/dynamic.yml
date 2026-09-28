@@ -27,4 +27,4 @@ http:
     maestro:
       loadBalancer:
         servers:
-          - url: "http://harness:42100"
+          - url: "http://harness:42003"

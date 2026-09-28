@@ -1,6 +1,6 @@
 {
   "name": "@mwaeckerlin/maestro",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Headless Docker image of the Maestro studio for image, video and music generation on NVIDIA GPUs",
   "scripts": {
     "build": "docker compose build || docker compose build || docker compose build",
@@ -9,9 +9,10 @@
     "start:dev": "docker compose up --build --force-recreate --remove-orphans",
     "stop": "docker compose down",
     "deploy": "docker compose push",
-    "test": "npm run test:docs && npm run test:image && npm run test:e2e",
+    "test": "npm run test:docs && npm run test:image && npm run test:start && npm run test:e2e",
     "test:docs": "bash tests/docs-contract.sh",
     "test:image": "npm run build && bash tests/image-contract.sh mwaeckerlin/maestro && bash tests/run-runtime.sh",
+    "test:start": "bash tests/run-start.sh mwaeckerlin/maestro",
     "test:e2e": "bash tests/run-e2e.sh",
     "test:gpu": "bash tests/run-gpu.sh"
   }

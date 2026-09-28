@@ -92,11 +92,6 @@ FROM mwaeckerlin/ubuntu-scratch
 ENV CONTAINERNAME="maestro" \
     PATH="/opt/maestro/venv/bin:/usr/local/bin:/usr/bin" \
     VIRTUAL_ENV="/opt/maestro/venv" \
-    MAESTRO_HOST="0.0.0.0" \
-    MAESTRO_PORT="42003" \
-    MAESTRO_MODEL_DIR="/models" \
-    MAESTRO_OUTPUT_DIR="/output" \
-    MAESTRO_STATE_DIR="/state" \
     MAESTRO_CONFIG="" \
     HF_HOME="/models/huggingface" \
     TRITON_CACHE_DIR="/tmp/triton" \

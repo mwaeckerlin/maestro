@@ -1,11 +1,12 @@
 """Serve the built Maestro interface of the image without a GPU.
 
 The Maestro server imports its engine at start, and the engine asks CUDA for
-the GPU; without one it stops. This harness serves what the image delivers to
-the browser — ui/dist with the base path script, behind maestro_serve's
-ForwardedPrefix — and answers the requests the base path tests make. It stands
-in for the Maestro backend only; the full server is tested on a GPU host by
-`npm run test:gpu`.
+the GPU (upstream's app/wgp.py calls torch.cuda.get_device_capability() at
+import); without one it stops with «Found no NVIDIA driver». This harness
+serves what the image delivers to the browser — ui/dist with the base path
+script, behind maestro_serve's ForwardedPrefix — and answers the requests the
+base path tests make. It stands in for the Maestro backend only; the full
+server is tested on a GPU host by `npm run test:gpu`.
 """
 import asyncio
 import base64
@@ -18,7 +19,7 @@ from fastapi import FastAPI, Request  # noqa: E402
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
-from maestro_serve import ForwardedPrefix, bind_address  # noqa: E402
+from maestro_serve import HOST, PORT, ForwardedPrefix  # noqa: E402
 
 # A 1x1 PNG, so an <img> can prove it loaded.
 PIXEL = base64.b64decode(
@@ -70,6 +71,5 @@ def icon():
 api.mount("/", StaticFiles(directory="/opt/maestro/src/ui/dist", html=True))
 
 if __name__ == "__main__":
-    # The launcher's own reading of MAESTRO_HOST and MAESTRO_PORT.
-    host, port = bind_address()
-    asyncio.run(uvicorn.Server(uvicorn.Config(ForwardedPrefix(api), host=host, port=port)).serve())
+    # The launcher's own address, which its HEALTHCHECK asks.
+    asyncio.run(uvicorn.Server(uvicorn.Config(ForwardedPrefix(api), host=HOST, port=PORT)).serve())

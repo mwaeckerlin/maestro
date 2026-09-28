@@ -13,9 +13,6 @@ services:
     build:
       context: harness
     pull_policy: build
-    # a port other than the default proves MAESTRO_PORT is read
-    environment:
-      MAESTRO_PORT: "42100"
 
   proxy:
     image: maestro-e2e-proxy
@@ -37,5 +34,5 @@ services:
     environment:
       PROXY_URL: http://proxy
       PREFIX: /spark-test/maestro
-      HARNESS_URL: http://harness:42100
+      HARNESS_URL: http://harness:42003
     command: ["pytest", "-v", "--tb=short", "-W", "error", "-p", "no:cacheprovider"]

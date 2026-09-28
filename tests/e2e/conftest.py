@@ -18,7 +18,7 @@ import requests
 
 PROXY_URL = os.environ.get("PROXY_URL", "http://proxy")
 PREFIX = os.environ.get("PREFIX", "/spark-test/maestro")
-HARNESS_URL = os.environ.get("HARNESS_URL", "http://harness:42100")
+HARNESS_URL = os.environ.get("HARNESS_URL", "http://harness:42003")
 LOCAL_PORT = 8080
 LOCAL_URL = f"http://localhost:{LOCAL_PORT}"
 

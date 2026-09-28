@@ -2,7 +2,7 @@
 
 Register of all tests, grouped by kind and sorted by the [FEATURES.md](FEATURES.md) number each test covers. `npm test` runs every suite that needs no GPU; `npm run test:gpu` runs the suite against the real Maestro server and needs a host with an NVIDIA GPU; the runtime contract runs on the arm64 runner of GitHub Actions against the arm64 image. The guard `tests/docs-contract.sh` fails when a feature has no test entry here or when any test carries a skip/xfail marker — tests are never skipped.
 
-The Maestro server imports its engine at start, and the engine asks CUDA for the GPU; without one it stops. The e2e suite therefore serves the real interface of the image through a harness (`tests/e2e/harness/harness.py`) that answers the requests of the base path tests; the GPU suite runs the real server.
+Maestro needs an NVIDIA GPU to start: upstream's `app/wgp.py` calls `torch.cuda.get_device_capability()` while it is imported, and without a driver the start ends with «Found no NVIDIA driver», measured on an amd64 host without a GPU. The start contract runs the image up to that point, and the e2e suite therefore serves the real interface of the image through a harness (`tests/e2e/harness/harness.py`) that answers the requests of the base path tests; the GPU suite runs the real server.
 
 ## Image contract
 
@@ -22,12 +22,10 @@ Runs inside the image, without a GPU.
 - **F2** `tests/runtime/check_runtime.py` › source_is_read_only_for_the_service_user — the code of the image cannot be changed by the service.
 - **F3** `tests/runtime/check_runtime.py` › torch_builds_are_upstream_cuda13 — torch, torchvision and torchaudio are the versions upstream pins, built for CUDA 13.
 - **F3** `tests/runtime/check_runtime.py` › triton_and_xformers_importable — Triton and xformers import; on aarch64 xformers is absent and Maestro's attention module loads without it.
-- **F4** `tests/runtime/check_runtime.py` › launcher_reads_bind_address — defaults `0.0.0.0:42003`, overrides reach Maestro as `SERVER_NAME`/`SERVER_PORT`, a port that is no number between 1 and 65535 stops the start.
-- **F5** `tests/runtime/check_runtime.py` › launcher_links_model_and_output_directories — `ckpts` and `loras` point into `MAESTRO_MODEL_DIR`, and a second start keeps the links.
-- **F5** `tests/runtime/check_runtime.py` › launcher_rejects_relative_or_empty_directory — a relative directory stops the start with the name of the variable.
-- **F6** `tests/runtime/check_runtime.py` › launcher_links_model_and_output_directories — `outputs` points into `MAESTRO_OUTPUT_DIR`, and a file written there arrives in the volume.
-- **F7** `tests/runtime/check_runtime.py` › launcher_runs_maestro_from_the_state_directory — the app runs from a copy in `MAESTRO_STATE_DIR`, the interface and icon are reachable from it, what Maestro wrote stays and stale code is replaced, also where the old copy is read-only.
-- **F7** `tests/runtime/check_runtime.py` › launcher_rejects_relative_or_empty_directory — an empty `MAESTRO_STATE_DIR` stops the start with the name of the variable.
+- **F4** `tests/runtime/check_runtime.py` › launcher_listens_on_the_exposed_port — the launcher listens on `0.0.0.0:42003`, the port of `EXPOSE`.
+- **F5** `tests/runtime/check_runtime.py` › launcher_links_model_and_output_directories — `/models` is the model directory, `ckpts` and `loras` point into it, and a second start keeps the links.
+- **F6** `tests/runtime/check_runtime.py` › launcher_links_model_and_output_directories — `/output` is the output directory, `outputs` points into it, and a file written there arrives in the volume.
+- **F7** `tests/runtime/check_runtime.py` › launcher_runs_maestro_from_the_state_directory — `/state` is the state directory, the app runs from a copy there, the interface and icon are reachable from it, what Maestro wrote stays and stale code is replaced, also where the old copy is read-only.
 - **F8** `tests/runtime/check_runtime.py` › launcher_merges_maestro_config — `MAESTRO_CONFIG` overrides the named keys, merges nested objects key by key and keeps every other setting.
 - **F8** `tests/runtime/check_runtime.py` › launcher_rejects_invalid_maestro_config — invalid JSON and a JSON array stop the start with the name of the variable.
 - **F10** `tests/runtime/check_runtime.py` › ffmpeg_and_ffprobe_run — both programs run without a shell.
@@ -45,11 +43,22 @@ Runs inside the image, without a GPU.
 - **F11** `tests/runtime/check_runtime.py` › taichi_importable — `taichi` imports, on aarch64 as `gstaichi`, with `init` and `kernel`.
 - **F11** `tests/runtime/check_runtime.py` › no_shared_library_of_another_architecture — no ELF shared library in the environment or the source is built for another architecture than the image.
 
+## Start contract
+
+`tests/run-start.sh`: the image started with the `docker run` of the README, without a GPU.
+
+- **F5** `tests/run-start.sh` › state_and_volumes_writable — no «Permission denied» for the volumes `/models` and `/output`.
+- **F7** `tests/run-start.sh` › state_and_volumes_writable — the tmpfs at `/state`, mounted for uid 100 and gid 1000, is writable for the service.
+- **F8** `tests/run-start.sh` › maestro_config_reaches_the_engine — with `MAESTRO_CONFIG` set, the launcher has the engine create its hardware-tuned configuration.
+- **F1** `tests/run-start.sh` › launcher_accepts_the_documented_setup — the launcher reports no configuration error for the documented command.
+- **F1** `tests/run-start.sh` › engine_imported — Maestro's engine loads and reports its Python and PyTorch runtime.
+- **F1** `tests/run-start.sh` › stops_only_at_the_missing_gpu — the start ends with «Found no NVIDIA driver» and with nothing earlier.
+- **F1** `tests/run-start.sh` › start_ends — the container ends by itself within 900 seconds.
+
 ## Base path e2e
 
 Playwright with Chromium, Traefik with the route of the Swarm deployment, no GPU.
 
-- **F4** `tests/e2e/docker-compose.yml` › harness with `MAESTRO_PORT=42100` — the stack reaches the server on the configured port, not the default.
 - **F13** `tests/e2e/docker-compose.yml` › proxy `depends_on: condition: service_healthy` — the proxy starts only after the image's own `HEALTHCHECK` reported the server healthy; `tests/run-e2e.sh` fails otherwise.
 - **F9** `tests/e2e/test_base_path.py` › test_bare_prefix_redirects_to_slash — the bare prefix redirects to its slash form.
 - **F9** `tests/e2e/test_base_path.py` › test_interface_mounts_below_prefix — React mounts and every request of the page stays below the prefix.
@@ -79,4 +88,4 @@ The real Maestro server, on a host with an NVIDIA GPU only.
 
 ## Limitations
 
-A real arm64 build and start are not measured by a suite: the resolution contract proves that every dependency exists for aarch64, and the GPU suite runs wherever an NVIDIA GPU is. That no request leaves the container is not measured; the runtime contract measures that HuggingFace and Gradio read their telemetry switches as off and that no Tailscale client exists.
+The arm64 runner of GitHub Actions builds the arm64 image and runs every suite of `npm test` against it, the start contract included; the running server is measured only by the GPU suite, on a host with an NVIDIA GPU. That no request leaves the container is not measured; the runtime contract measures that HuggingFace and Gradio read their telemetry switches as off and that no Tailscale client exists.
