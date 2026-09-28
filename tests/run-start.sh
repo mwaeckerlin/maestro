@@ -7,8 +7,8 @@
 # driver that raises "Found no NVIDIA driver". So the start must get through
 # everything the image and the launcher do — the volumes, the tmpfs mounts
 # owned by the service user, MAESTRO_CONFIG, the import of the engine — and
-# stop at exactly that question. The GPU suite (`npm run test:gpu`) measures
-# the running server.
+# stop at exactly that question. The running server is not measured: the build
+# hosts and the runners have no NVIDIA GPU.
 #
 # Usage: bash tests/run-start.sh [IMAGE]
 

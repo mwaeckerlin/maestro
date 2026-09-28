@@ -110,10 +110,9 @@ The build keeps the list it installed in the image (`/opt/maestro/src/requiremen
 ```bash
 $ npm run build
 $ npm test
-$ npm run test:gpu
 ```
 
-`npm run build` builds the image with Docker Compose and starts over up to three times when the build fails, because a name lookup or a download that breaks off ends the whole build while the finished steps stay cached; `npm test` runs every suite that needs no GPU, `npm run test:gpu` runs the real Maestro server on an NVIDIA GPU host.
+`npm run build` builds the image with Docker Compose and starts over up to three times when the build fails, because a name lookup or a download that breaks off ends the whole build while the finished steps stay cached; `npm test` runs every suite. None of them needs a GPU, because the build hosts and the GitHub runners have none.
 
 GitHub Actions builds the image and publishes it on Docker Hub on every push to the default branch and once a week ([.github/workflows/docker.yml](.github/workflows/docker.yml), the reusable workflow of [mwaeckerlin/scratch]), natively for `linux/amd64` and `linux/arm64`.
 
@@ -123,7 +122,9 @@ GitHub Actions builds the image and publishes it on Docker Hub on every push to 
 2. **Image contract** (`tests/image-contract.sh`) — no shell, no busybox, no perl in the image.
 3. **Runtime contract** (`tests/runtime/check_runtime.py`, inside the image) — the upstream Python and PyTorch builds, every requirement installed and importable, ffmpeg, gcc, git and ldconfig without a shell, and the launcher.
 4. **Start contract** (`tests/run-start.sh`) — the image started with the `docker run` above, without a GPU. Maestro needs an NVIDIA GPU to start: upstream's `app/wgp.py` calls `torch.cuda.get_device_capability()` while it is imported, and without a driver the start ends with «Found no NVIDIA driver», measured on an amd64 host without a GPU. The contract passes when the start gets through the volumes, the tmpfs, `MAESTRO_CONFIG` and the import of the engine and stops at exactly that point.
-5. **Base path e2e** (`tests/e2e/`) — the interface of the image behind Traefik with a stripped prefix, driven by Chromium. A harness serves the real interface and answers the test requests; `npm run test:gpu` measures the real server.
+5. **Base path e2e** (`tests/e2e/`) — the interface of the image behind Traefik with a stripped prefix, driven by Chromium. A harness serves the real interface and answers the test requests.
+
+The running Maestro server is not measured: it needs an NVIDIA GPU, and no build host or runner has one. The start contract covers the start up to the question for the GPU, the e2e suite covers the interface.
 
 ## Internals
 

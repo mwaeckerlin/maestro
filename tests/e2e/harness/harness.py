@@ -5,8 +5,7 @@ the GPU (upstream's app/wgp.py calls torch.cuda.get_device_capability() at
 import); without one it stops with «Found no NVIDIA driver». This harness
 serves what the image delivers to the browser — ui/dist with the base path
 script, behind maestro_serve's ForwardedPrefix — and answers the requests the
-base path tests make. It stands in for the Maestro backend only; the full
-server is tested on a GPU host by `npm run test:gpu`.
+base path tests make. It stands in for the Maestro backend only.
 """
 import asyncio
 import base64

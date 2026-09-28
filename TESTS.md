@@ -1,8 +1,8 @@
 # Tests
 
-Register of all tests, grouped by kind and sorted by the [FEATURES.md](FEATURES.md) number each test covers. `npm test` runs every suite that needs no GPU; `npm run test:gpu` runs the suite against the real Maestro server and needs a host with an NVIDIA GPU; the runtime contract runs on the arm64 runner of GitHub Actions against the arm64 image. The guard `tests/docs-contract.sh` fails when a feature has no test entry here or when any test carries a skip/xfail marker — tests are never skipped.
+Register of all tests, grouped by kind and sorted by the [FEATURES.md](FEATURES.md) number each test covers. `npm test` runs every suite, none of which needs a GPU; the runtime contract runs on the arm64 runner of GitHub Actions against the arm64 image. The guard `tests/docs-contract.sh` fails when a feature has no test entry here or when any test carries a skip/xfail marker — tests are never skipped.
 
-Maestro needs an NVIDIA GPU to start: upstream's `app/wgp.py` calls `torch.cuda.get_device_capability()` while it is imported, and without a driver the start ends with «Found no NVIDIA driver», measured on an amd64 host without a GPU. The start contract runs the image up to that point, and the e2e suite therefore serves the real interface of the image through a harness (`tests/e2e/harness/harness.py`) that answers the requests of the base path tests; the GPU suite runs the real server.
+Maestro needs an NVIDIA GPU to start: upstream's `app/wgp.py` calls `torch.cuda.get_device_capability()` while it is imported, and without a driver the start ends with «Found no NVIDIA driver», measured on an amd64 host without a GPU. The start contract runs the image up to that point, and the e2e suite therefore serves the real interface of the image through a harness (`tests/e2e/harness/harness.py`) that answers the requests of the base path tests.
 
 ## Image contract
 
@@ -75,17 +75,6 @@ Playwright with Chromium, Traefik with the route of the Swarm deployment, no GPU
 - **F9** `tests/e2e/test_base_path.py` › test_interface_at_root_without_prefix — served at the root, the script changes no URL.
 - **F9** `tests/e2e/test_base_path.py` › test_invalid_forwarded_prefix_is_ignored — a prefix header with spaces, a scheme, a double slash or markup is ignored.
 
-## GPU suite
-
-The real Maestro server, on a host with an NVIDIA GPU only.
-
-- **F3** `tests/gpu/test_maestro.py` › test_gpu_detected — Maestro detects CUDA inside the container.
-- **F1** `tests/gpu/test_maestro.py` › test_models_listed — the engine loaded and lists its models.
-- **F8** `tests/gpu/test_maestro.py` › test_maestro_config_applied — the running server reports the profiles and VAE setting of `MAESTRO_CONFIG`.
-- **F9** `tests/gpu/test_maestro.py` › test_interface_below_prefix — the real interface mounts below the prefix, stays there and has no failing request.
-- **F9** `tests/gpu/test_maestro.py` › test_classic_interface_below_prefix — the classic Gradio interface loads below the prefix and stays there.
-- **F9** `tests/gpu/test_maestro.py` › test_api_docs_below_prefix — the API documentation answers below the prefix.
-
 ## Limitations
 
-The arm64 runner of GitHub Actions builds the arm64 image and runs every suite of `npm test` against it, the start contract included; the running server is measured only by the GPU suite, on a host with an NVIDIA GPU. That no request leaves the container is not measured; the runtime contract measures that HuggingFace and Gradio read their telemetry switches as off and that no Tailscale client exists.
+The arm64 runner of GitHub Actions builds the arm64 image and runs every suite of `npm test` against it, the start contract included. The running server is not measured: it needs an NVIDIA GPU, and no build host or runner has one. That no request leaves the container is not measured; the runtime contract measures that HuggingFace and Gradio read their telemetry switches as off and that no Tailscale client exists.
