@@ -7,8 +7,7 @@ the image and does what Pinokio does:
 - /state receives everything Maestro writes besides models and outputs:
   settings, the queue it saves, projects, uploads of the interface. Maestro
   writes all of it into its own app directory, so the launcher runs a copy of
-  that directory from /state; the image itself stays read-only, and a tmpfs
-  there keeps all of it off the disk.
+  that directory from /state, and the image itself stays read-only.
 - /models receives the model weights, the LoRAs and the HuggingFace cache;
   /output receives every generated file. The launcher links the directories
   Maestro writes them to.

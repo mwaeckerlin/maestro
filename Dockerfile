@@ -104,7 +104,7 @@ ENV CONTAINERNAME="maestro" \
     NVIDIA_VISIBLE_DEVICES="all" \
     NVIDIA_DRIVER_CAPABILITIES="compute,utility,video"
 EXPOSE 42003
-VOLUME ["/models", "/output"]
+VOLUME ["/models", "/output", "/state"]
 # The engine import takes minutes on a first start; the interface at / answers
 # only once everything is up.
 HEALTHCHECK --interval=30s --timeout=15s --start-period=900s --retries=3 \

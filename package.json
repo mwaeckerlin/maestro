@@ -1,6 +1,6 @@
 {
   "name": "@mwaeckerlin/maestro",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Headless Docker image of the Maestro studio for image, video and music generation on NVIDIA GPUs",
   "scripts": {
     "build": "docker compose build || docker compose build || docker compose build",

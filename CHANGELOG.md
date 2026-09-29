@@ -1,5 +1,8 @@
 # Changelog
 
+- 2026-09-29 **1.0.7**
+    - `/state` is a volume that keeps projects and the saved queue across a restart, and `/tmp` needs no mount; the tmpfs mounts are gone from the documented start
+
 - 2026-09-28 **1.0.6**
     - The test suite that needed a GPU host is gone, because no build host or runner has an NVIDIA GPU; the start test covers the start up to that point
 

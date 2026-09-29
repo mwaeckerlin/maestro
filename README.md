@@ -29,7 +29,7 @@ Maestro downloads a model the first time it is used and keeps it in the model di
 Requirements on the host: an NVIDIA GPU with driver 580 or newer (CUDA 13) and the [NVIDIA container toolkit].
 
 ```bash
-$ docker run -d --name maestro --gpus all -p 42003:42003 -v maestro-models:/models -v maestro-output:/output --tmpfs /state:uid=100,gid=1000,mode=0700 --tmpfs /tmp:mode=1777 mwaeckerlin/maestro
+$ docker run -d --name maestro --gpus all -p 42003:42003 -v maestro-models:/models -v maestro-output:/output -v maestro-state:/state mwaeckerlin/maestro
 ```
 
 Browse to `http://localhost:42003`. With Docker Compose, [docker-compose.yml](docker-compose.yml) does the same: `npm start`.
@@ -48,7 +48,9 @@ The server listens on port 42003; another port outside is the port mapping of th
 
 - `/models` — model weights, LoRAs (`loras/`) and the HuggingFace cache; persist it to avoid downloading models again, it holds nothing personal.
 - `/output` — every generated image, video and audio file. Collect them from here.
-- `/state` and `/tmp` — mount a **tmpfs** on both. `/state` holds everything else Maestro writes, settings, projects and the queue Maestro saves after a crash, which contains prompts, and `/tmp` receives the files uploaded through the interface. On a tmpfs nothing of it reaches the disk, and a restart starts with Maestro's defaults plus `MAESTRO_CONFIG`. A tmpfs belongs to root unless it is mounted with `uid=100,gid=1000` for `/state` and `mode=1777` for `/tmp`, as in the command above; without that the start stops with «Permission denied».
+- `/state` — everything else Maestro writes: settings, projects and the queue it saves after a crash, which contains prompts. As a volume it keeps projects and the saved queue across a restart; the settings of `MAESTRO_CONFIG` are applied again at every start.
+
+`/tmp` needs no mount: it receives the files uploaded through the interface and the Triton cache, and every new container starts with it empty.
 
 The container runs as `somebody` of [mwaeckerlin/ubuntu-scratch], uid 100, gid 1000, member of the group `shared-access` (gid 500), the same user as in [mwaeckerlin/scratch]; the volumes must be writable for it, and a volume shared with another image of the family is shared through `shared-access`.
 
@@ -121,7 +123,7 @@ GitHub Actions builds the image and publishes it on Docker Hub on every push to 
 1. **Docs contract** (`tests/docs-contract.sh`) — every feature has a test, no test is skipped.
 2. **Image contract** (`tests/image-contract.sh`) — no shell, no busybox, no perl in the image.
 3. **Runtime contract** (`tests/runtime/check_runtime.py`, inside the image) — the upstream Python and PyTorch builds, every requirement installed and importable, ffmpeg, gcc, git and ldconfig without a shell, and the launcher.
-4. **Start contract** (`tests/run-start.sh`) — the image started with the `docker run` above, without a GPU. Maestro needs an NVIDIA GPU to start: upstream's `app/wgp.py` calls `torch.cuda.get_device_capability()` while it is imported, and without a driver the start ends with «Found no NVIDIA driver», measured on an amd64 host without a GPU. The contract passes when the start gets through the volumes, the tmpfs, `MAESTRO_CONFIG` and the import of the engine and stops at exactly that point.
+4. **Start contract** (`tests/run-start.sh`) — the image started with the `docker run` above, without a GPU. Maestro needs an NVIDIA GPU to start: upstream's `app/wgp.py` calls `torch.cuda.get_device_capability()` while it is imported, and without a driver the start ends with «Found no NVIDIA driver», measured on an amd64 host without a GPU. The contract passes when the start gets through the volumes, `MAESTRO_CONFIG` and the import of the engine and stops at exactly that point.
 5. **Base path e2e** (`tests/e2e/`) — the interface of the image behind Traefik with a stripped prefix, driven by Chromium. A harness serves the real interface and answers the test requests.
 
 The running Maestro server is not measured: it needs an NVIDIA GPU, and no build host or runner has one. The start contract covers the start up to the question for the GPU, the e2e suite covers the interface.

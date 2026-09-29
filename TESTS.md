@@ -47,8 +47,10 @@ Runs inside the image, without a GPU.
 
 `tests/run-start.sh`: the image started with the `docker run` of the README, without a GPU.
 
-- **F5** `tests/run-start.sh` › state_and_volumes_writable — no «Permission denied» for the volumes `/models` and `/output`.
-- **F7** `tests/run-start.sh` › state_and_volumes_writable — the tmpfs at `/state`, mounted for uid 100 and gid 1000, is writable for the service.
+- **F5** `tests/run-start.sh` › state_and_volumes_writable — no «Permission denied» for the volumes `/models` and `/output`, and `/tmp` without a mount.
+- **F7** `tests/run-start.sh` › state_and_volumes_writable — the volume at `/state` is writable for the service.
+- **F7** `tests/run-start.sh` › state_owned_by_the_service_with_mode_0700 — the start runs on a `/state` owned by uid 100 with mode 0700, as an encrypted scratch volume of a deployment hands it over.
+- **F7** `tests/run-start.sh` › state_survives_a_new_container — a second container on the same volume finds the copy of the app the first one wrote to `/state`.
 - **F8** `tests/run-start.sh` › maestro_config_reaches_the_engine — with `MAESTRO_CONFIG` set, the launcher has the engine create its hardware-tuned configuration.
 - **F1** `tests/run-start.sh` › launcher_accepts_the_documented_setup — the launcher reports no configuration error for the documented command.
 - **F1** `tests/run-start.sh` › engine_imported — Maestro's engine loads and reports its Python and PyTorch runtime.
