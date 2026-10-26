@@ -53,6 +53,7 @@ RUN --mount=type=cache,id=/home/somebody/.cache/uv,target=/root/.cache/uv \
 RUN python3 /opt/maestro/bin/upstream-install.py seedvc
 # Maestro runs the component, it never updates it through git
 RUN rm -rf app/postprocessing/seedvc/.git
+RUN python3 /opt/maestro/bin/upstream-install.py foreign-libraries
 WORKDIR /opt/maestro/src/ui
 RUN --mount=type=cache,id=/home/somebody/.npm,target=/root/.npm npm ci
 # Relative asset URLs, so the interface also works below a path prefix.

@@ -1,5 +1,8 @@
 # Changelog
 
+- 2026-10-26 **1.0.9**
+    - The arm64 image carries no prebuilt library for x86_64: upstream now ships compiled helpers for x86_64 only, such as the VRAM allocator `app/mmgp/allocator/vmm_alloc_linux_x86_64.so`; Maestro picks such a file by machine and never loads it on arm64, and the build removes it there
+
 - 2026-10-25 **1.0.8**
     - The build reads the current package lists before it installs, as `mwaeckerlin/ubuntu-very-base` asks; with the lists of the base image's last build, apt asked for a `ca-certificates` the Ubuntu mirror no longer had, and the arm64 build failed with 404
 

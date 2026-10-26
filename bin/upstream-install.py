@@ -21,6 +21,7 @@ Usage, from the root of the upstream source:
     upstream-install.py torch            install PyTorch and the accelerators
     upstream-install.py seedvc           clone the voice-conversion component
     upstream-install.py optional-kernels scripts/NAME.py  run an optional kernel installer
+    upstream-install.py foreign-libraries  remove the prebuilt libraries of another machine
 """
 import os
 import platform
@@ -296,8 +297,35 @@ def seedvc_clone():
     subprocess.run(command, check=True)
 
 
+# The ELF machine numbers of the architectures the image is built for.
+ELF_MACHINES = {62: "x86_64", 183: "aarch64"}
+
+
+def remove_foreign_libraries():
+    """Remove every prebuilt shared library of the source that is for another machine.
+
+    Upstream ships compiled helpers for x86_64 only, such as the VRAM allocator
+    app/mmgp/allocator/vmm_alloc_linux_x86_64.so. Its loader picks the file by
+    platform and machine, so on aarch64 these files are never loaded; they are
+    removed so that the image carries no code it cannot run.
+    """
+    machine = machine_tag()
+    for path in sorted(Path(".").rglob("*.so*")):
+        if path.is_symlink() or not path.is_file() or not (path.name.endswith(".so") or ".so." in path.name):
+            continue
+        with path.open("rb") as handle:
+            header = handle.read(20)
+        if header[:4] != b"\x7fELF":
+            continue
+        found = ELF_MACHINES.get(int.from_bytes(header[18:20], "little"), "other")
+        if found != machine:
+            print(f"upstream-install: removed, {found} library on {machine}: {path}", flush=True)
+            path.unlink()
+
+
 def main(argv):
     actions = {
+        "foreign-libraries": remove_foreign_libraries,
         "python-version": lambda: print(python_version()),
         "pytorch-index": lambda: print(pytorch_index()),
         "requirements": install_requirements,
