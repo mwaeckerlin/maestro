@@ -5,7 +5,7 @@
 
 #### build: the upstream source and its Python environment ####
 FROM mwaeckerlin/ubuntu-very-base AS build
-RUN $PKG_INSTALL ca-certificates curl git python3 build-essential nodejs npm ffmpeg libgl1 libglib2.0-0 libportaudio2
+RUN apt-get update && $PKG_INSTALL ca-certificates curl git python3 build-essential nodejs npm ffmpeg libgl1 libglib2.0-0 libportaudio2
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
 ENV UV_PYTHON_INSTALL_DIR="/opt/maestro/python" \
     UV_CACHE_DIR="/root/.cache/uv" \

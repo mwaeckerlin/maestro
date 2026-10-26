@@ -1,5 +1,8 @@
 # Changelog
 
+- 2026-10-25 **1.0.8**
+    - The build reads the current package lists before it installs, as `mwaeckerlin/ubuntu-very-base` asks; with the lists of the base image's last build, apt asked for a `ca-certificates` the Ubuntu mirror no longer had, and the arm64 build failed with 404
+
 - 2026-09-29 **1.0.7**
     - `/state` is a volume that keeps projects and the saved queue across a restart, and `/tmp` needs no mount; the tmpfs mounts are gone from the documented start
 
